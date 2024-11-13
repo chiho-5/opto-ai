@@ -8,6 +8,8 @@ const app = express();
 const upload = multer({ dest: 'uploads/' }); // Temporary folder to store uploaded files
 
 // Serve the HTML page when accessing the root URL
+// The updated HTML structure with CSS for the blinking eye animation
+
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -25,8 +27,17 @@ app.get('/', (req, res) => {
         .progress-text { font-size: 14px; color: #666; }
         .progress-bar { width: 100%; height: 5px; background-color: #ddd; border-radius: 5px; overflow: hidden; margin-top: 5px; }
         .progress-fill { height: 100%; background-color: #8a4baf; }
-        .speaker-container { margin: 20px 0; width: 120px; height: 120px; background-color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
-        .speaker-button { font-size: 40px; color: #8a4baf; background: none; border: none; cursor: pointer; }
+        
+        /* Blinking Eye Animation */
+        .eye-container { margin: 20px 0; width: 120px; height: 120px; background-color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
+        .eye { width: 50px; height: 25px; background-color: #8a4baf; border-radius: 50%; position: relative; animation: blink 3s infinite; }
+        .eye::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 20px; height: 20px; background-color: #fff; border-radius: 50%; }
+        
+        @keyframes blink {
+          0%, 20%, 40%, 60%, 80%, 100% { height: 25px; }
+          10%, 30%, 50%, 70%, 90% { height: 5px; }
+        }
+        
         .sentence { font-size: 24px; margin: 20px 0; text-align: center; }
         .highlighted-text { color: #8a4baf; font-weight: bold; }
         .word-info { background-color: #fff; border-radius: 15px; padding: 15px; width: 100%; max-width: 300px; text-align: center; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
@@ -34,7 +45,10 @@ app.get('/', (req, res) => {
         .word-details { font-size: 14px; color: #666; margin-bottom: 10px; }
         .translation { font-size: 14px; color: #333; }
         .known-words-text { font-size: 16px; color: #8a4baf; text-decoration: underline; cursor: pointer; margin-bottom: 20px; }
-        .generate-button { background-color: #8a4baf; color: #fff; border: none; border-radius: 25px; padding: 15px 30px; font-size: 16px; cursor: pointer; }
+        .generate-button, .file-input { background-color: #8a4baf; color: #fff; border: none; border-radius: 25px; padding: 15px 30px; font-size: 16px; cursor: pointer; }
+        .file-input-container { display: flex; align-items: center; margin-bottom: 20px; }
+        .file-input-label { font-size: 16px; margin-right: 10px; color: #333; }
+        .file-input { padding: 8px 16px; font-size: 14px; color: #fff; cursor: pointer; }
       </style>
     </head>
     <body>
@@ -50,8 +64,8 @@ app.get('/', (req, res) => {
             <div class="progress-fill" style="width: 0%;"></div>
           </div>
         </div>
-        <div class="speaker-container">
-          <button class="speaker-button">🔊</button>
+        <div class="eye-container">
+          <div class="eye"></div>
         </div>
         <div class="sentence">
           <span>The OPTO </span>
@@ -63,10 +77,13 @@ app.get('/', (req, res) => {
           <div class="word-details">
             <span>your</span> | <span>Eye</span> | <span>Examination</span>
           </div>
-          <p class="translation">Waiting for response...</p>
+          <p class="translation" id="status">Opto is ready</p>
         </div>
         <p class="known-words-text">Project Description</p>
-        <input type="file" id="videoFile" accept="video/mp4" />
+        <div class="file-input-container">
+          <label class="file-input-label" for="videoFile">Choose Video File:</label>
+          <input type="file" id="videoFile" accept="video/mp4" class="file-input" />
+        </div>
         <button class="generate-button" onclick="uploadVideo()">Examine Eyes</button>
       </div>
       <script>
@@ -76,10 +93,14 @@ app.get('/', (req, res) => {
             alert("Please select a video file first.");
             return;
           }
+          document.getElementById('status').textContent = "Opto is examining...";
+          
           const formData = new FormData();
           formData.append('video', videoFile);
+          
           const xhr = new XMLHttpRequest();
           xhr.open('POST', '/submit-video', true);
+          
           xhr.upload.onprogress = function (event) {
             if (event.lengthComputable) {
               const percent = (event.loaded / event.total) * 100;
@@ -87,11 +108,12 @@ app.get('/', (req, res) => {
               document.querySelector('.progress-text').textContent = \`Progress: \${Math.round(percent)} / 100\`;
             }
           };
+          
           xhr.onload = function () {
             const response = JSON.parse(xhr.responseText);
-            const wordInfo = document.querySelector('.word-info');
-            wordInfo.querySelector('.translation').textContent = \`Response: \${JSON.stringify(response)}\`;
+            document.getElementById('status').textContent = \`Response: \${JSON.stringify(response)}\`;
           };
+          
           xhr.send(formData);
         };
       </script>
@@ -99,6 +121,7 @@ app.get('/', (req, res) => {
     </html>
   `);
 });
+
 
 // Handle POST request for video upload
 app.post('/submit-video', upload.single('video'), async (req, res) => {
